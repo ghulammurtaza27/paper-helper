@@ -7,24 +7,41 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const MAX_CONTENT_LENGTH = 8000; // Gemini's token limit
 
 function cleanJsonResponse(text: string): string {
-  // Remove markdown code blocks and any trailing content
-  let cleanText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '');
-  
-  // Find the last complete closing brace
-  const lastBraceIndex = cleanText.lastIndexOf('}');
-  if (lastBraceIndex === -1) {
+  // First, find the first occurrence of '{'
+  const startIndex = text.indexOf('{');
+  if (startIndex === -1) {
     throw new Error('No valid JSON structure found');
   }
-  
-  // Take only the content up to the last complete brace
-  cleanText = cleanText.substring(0, lastBraceIndex + 1).trim();
-  
-  // Validate JSON structure
-  if (!cleanText.startsWith('{')) {
+
+  // Find the matching closing brace
+  let braceCount = 0;
+  let endIndex = -1;
+
+  for (let i = startIndex; i < text.length; i++) {
+    if (text[i] === '{') braceCount++;
+    if (text[i] === '}') {
+      braceCount--;
+      if (braceCount === 0) {
+        endIndex = i;
+        break;
+      }
+    }
+  }
+
+  if (endIndex === -1) {
+    throw new Error('No valid JSON structure found');
+  }
+
+  // Extract the JSON portion
+  const jsonText = text.slice(startIndex, endIndex + 1);
+
+  try {
+    // Validate by parsing
+    JSON.parse(jsonText);
+    return jsonText;
+  } catch (e) {
     throw new Error('Invalid JSON structure');
   }
-  
-  return cleanText;
 }
 
 export async function POST(req: Request) {
